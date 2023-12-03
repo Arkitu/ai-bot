@@ -31,6 +31,7 @@ name = "ai-bot"
 version = "0.1.0"
 dependencies = [
  "dotenv",
+ "futures",
  "llm-chain",
  "llm-chain-llama",
  "reqwest",
