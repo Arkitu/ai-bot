@@ -76,11 +76,6 @@ impl EventHandler for Handler {
         }
         let mut reply = msg.reply(&ctx.http, "🔄 Réfléchit...").await.unwrap();
 
-        let stops = vec![
-            "SYSTEM:".to_string(),
-            "USER:".to_string()
-        ];
-
         let content = msg.content_safe(&ctx.cache);
         let content = match ctx.cache.current_user().discriminator {
             Some(d) => {
@@ -94,17 +89,50 @@ impl EventHandler for Handler {
         };
         let content = content.trim();
 
-        let prompt = "\
+        let stops = vec![
+            "SYSTEM:".to_string(),
+            "USER:".to_string()
+        ];
+        let prompt = format!("\
             SYSTEM: Tu es AI Bot, un bot discord Français.\
-            Tu es sympa et utilise des emojis.\
-            Tu peux utliser les commandes suivantes en les envoyant dans le chat :\n\
-            - /create_channel \"nom du salon\"\n\
-            Par exemple : \"ASSISTANT: /create_channel general\" crée le salon general\n\
-            - /delete_channel \"nom du salon\"\n\
-            ".to_string() + &format!("USER: {}\nASSISTANT:", content);
+            Tu es sympa et utilise des emojis.\n\n\
+            USER: {}\n\n\
+            SYSTEM: Tu peux faire une des actions suivantes:\n\
+            - ne rien faire
+            - répondre\n\
+            - créer un salon\n\
+            - supprimer un salon\n\
+            Tu dois l'écrire EXACTEMENT et ne rien ajouter
+            ACTION: \
+        ", content);
+
+        // let prompt = "\
+        //     SYSTEM: Tu es AI Bot, un bot discord Français.\
+        //     Tu es sympa et utilise des emojis.\
+        //     Tu peux utliser les commandes suivantes en les envoyant dans le chat :\n\
+        //     - /create_channel \"nom du salon\"\n\
+        //     Par exemple : \"ASSISTANT: /create_channel general\" crée le salon general\n\
+        //     - /delete_channel \"nom du salon\"\n\
+        //     ".to_string() + &format!("USER: {}\nASSISTANT:", content);
 
         println!("Responding to {}…", msg.author.name);
-        let res = execute(&self.exec, stops, prompt).await;
+        let res = execute(
+            &self.exec,
+            vec![
+                "\n".to_string()
+            ],
+            format!("\
+                USER: {}\n\n\
+                SYSTEM: Tu peux faire une des actions suivantes:\n\
+                /répondre\n\
+                /créer un salon\n\
+                /supprimer un salon\n\
+                /ne rien faire\n\
+                Tu dois l'écrire EXACTEMENT et ne rien ajouter\n\n\
+                ASSISTANT: \
+            ", content)
+        ).await;
+        dbg!(&res);
         let res = res.trim();
 
         if res.starts_with("/create_channel ") {
