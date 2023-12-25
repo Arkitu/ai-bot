@@ -2,10 +2,13 @@ use llm_chain::options::{Options, Opt};
 use llm_chain::prompt::Prompt;
 use llm_chain::traits::Executor as ExecutorTrait;
 use llm_chain::{prompt, parameters};
+use serenity::all::ChannelId;
 use serenity::builder::{CreateChannel, EditMessage, CreateEmbed, CreateEmbedAuthor};
 use tokio;
 use dotenv::dotenv;
+use std::collections::HashMap;
 use std::env;
+use std::sync::Arc;
 use serenity::prelude::*;
 use serenity::model::gateway::Ready;
 use serenity::model::channel::Message;
@@ -15,37 +18,22 @@ mod llama_cpp_executor;
 use llama_cpp_executor::Executor;
 
 struct Handler {
-    exec: Executor
+    exec: Executor,
+    chats: Arc<RwLock<HashMap<ChannelId, String>>>
 }
 
 impl Handler {
     pub fn new() -> Self {
-        // let opts = options!(
-        //     Model: ModelRef::from_path("./ggml-alpaca-7b-q4.bin"), // Notice that we reference the model binary path
-        //     ModelType: "llama",
-        //     MaxContextSize: 512_usize,
-        //     NThreads: 4_usize,
-        //     MaxTokens: 0_usize,
-        //     TopK: 40_i32,
-        //     TopP: 0.95,
-        //     TfsZ: 1.0,
-        //     TypicalP: 1.0,
-        //     Temperature: 0.8,
-        //     RepeatPenalty: 1.1,
-        //     RepeatPenaltyLastN: 64_usize,
-        //     FrequencyPenalty: 0.0,
-        //     PresencePenalty: 0.0,
-        //     Mirostat: 0_i32,
-        //     MirostatTau: 5.0,
-        //     MirostatEta: 0.1,
-        //     PenalizeNl: true,
-        //     StopSequence: vec!["\n".to_string()]
-        // );
-        // let exec = executor!(llama, opts).unwrap();
         let exec = Executor::new().unwrap();
         Self {
-            exec
+            exec,
+            chats: Arc::new(RwLock::new(HashMap::new()))
         }
+    }
+    pub async fn create_chat(&self, chan: ChannelId) {
+        let mut chats = self.chats.write().await;
+
+        chats.insert(chan, "".to_string());
     }
 }
 
@@ -74,6 +62,9 @@ impl EventHandler for Handler {
         if msg.is_own(&ctx.cache) || !msg.mentions_me(&ctx.http).await.unwrap() {
             return
         }
+
+        
+
         let mut reply = msg.reply(&ctx.http, "🔄 Réfléchit...").await.unwrap();
 
         let content = msg.content_safe(&ctx.cache);
@@ -91,7 +82,8 @@ impl EventHandler for Handler {
 
         let stops = vec![
             "SYSTEM:".to_string(),
-            "USER:".to_string()
+            "USER:".to_string(),
+            msg.author.name.clone() + ":"
         ];
         let prompt = format!("\
             SYSTEM: Tu es AI Bot, un bot discord Français.\
@@ -106,64 +98,30 @@ impl EventHandler for Handler {
             ACTION: \
         ", content);
 
-        // let prompt = "\
-        //     SYSTEM: Tu es AI Bot, un bot discord Français.\
-        //     Tu es sympa et utilise des emojis.\
-        //     Tu peux utliser les commandes suivantes en les envoyant dans le chat :\n\
-        //     - /create_channel \"nom du salon\"\n\
-        //     Par exemple : \"ASSISTANT: /create_channel general\" crée le salon general\n\
-        //     - /delete_channel \"nom du salon\"\n\
-        //     ".to_string() + &format!("USER: {}\nASSISTANT:", content);
-
         println!("Responding to {}…", msg.author.name);
         let res = execute(
             &self.exec,
-            vec![
-                "\n".to_string()
-            ],
+            stops,
             format!("\
-                USER: {}\n\n\
-                SYSTEM: Tu peux faire une des actions suivantes:\n\
-                /répondre\n\
-                /créer un salon\n\
-                /supprimer un salon\n\
-                /ne rien faire\n\
-                Tu dois l'écrire EXACTEMENT et ne rien ajouter\n\n\
+                {}: {}\n\n\
                 ASSISTANT: \
-            ", content)
+            ", msg.author.name, content)
         ).await;
         dbg!(&res);
         let res = res.trim();
 
-        if res.starts_with("/create_channel ") {
-            let res = res.split_at(16).1;
-            let res = res.trim_matches('"');
-            if let Some(guild_id) = msg.guild_id {
-                match guild_id.create_channel(&ctx.http, CreateChannel::new(res)).await {
-                    Err(e) => {
-                        reply.edit(&ctx.http, EditMessage::new().content(format!("❌ Erreur : {}", e))).await.unwrap();
-                    },
-                    Ok(chan) => {
-                        reply.edit(&ctx.http, EditMessage::new().content(format!("✅ <#{}> créé !", chan.id))).await.unwrap();
-                    }
-                }
-            } else {
-                reply.edit(&ctx.http, EditMessage::new().content("❌ Erreur : j'ai essayé de créer un salon mais je ne suis pas dans un serveur")).await.unwrap();
-            }
-        } else {
-            let avatar_url = ctx.cache.current_user().face();
+        let avatar_url = ctx.cache.current_user().face();
 
-            reply.edit(&ctx.http, EditMessage::new()
-                .content("")
-                .add_embed(
-                    CreateEmbed::new()
-                        .author(CreateEmbedAuthor::new("AI Bot").icon_url(avatar_url))
-                        .description(res)
-                )
-            ).await.unwrap();
+        reply.edit(&ctx.http, EditMessage::new()
+            .content("")
+            .add_embed(
+                CreateEmbed::new()
+                    .author(CreateEmbedAuthor::new("AI Bot").icon_url(avatar_url))
+                    .description(res)
+            )
+        ).await.unwrap();
 
-            msg.react(&ctx.http, '✅').await.unwrap();
-        }
+        msg.react(&ctx.http, '✅').await.unwrap();
     }
 }
 
