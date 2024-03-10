@@ -1,7 +1,6 @@
 use llm_chain::options::{Options, Opt};
 use llm_chain::prompt::Prompt;
 use llm_chain::traits::Executor as ExecutorTrait;
-use serenity::all::CreateMessage;
 use tokio;
 use dotenv::dotenv;
 use std::{env, vec};
@@ -73,9 +72,9 @@ impl EventHandler for Handler {
                 while d.chars().count() < 4 {
                     d.insert(0, '0');
                 }
-                content.trim_start_matches(&dbg!(format!("@{}#{}", ctx.cache.current_user().name, d)))
+                content.trim_start_matches(&format!("@{}#{}", ctx.cache.current_user().name, d))
             },
-            None => content.trim_start_matches(&dbg!(format!("@{}", ctx.cache.current_user().name)))
+            None => content.trim_start_matches(&format!("@{}", ctx.cache.current_user().name))
         };
         let content = content.trim();
 
