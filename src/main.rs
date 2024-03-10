@@ -1,11 +1,9 @@
 use llm_chain::options::{Options, Opt};
 use llm_chain::prompt::Prompt;
 use llm_chain::traits::Executor as ExecutorTrait;
-use serenity::all::{Channel, ChannelId, CommandDataOption, CommandDataOptionValue, CreateMessage, Interaction};
-use serenity::builder::{EditMessage, CreateEmbed, CreateEmbedAuthor, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, Builder};
+use serenity::all::CreateMessage;
 use tokio;
 use dotenv::dotenv;
-use std::collections::HashMap;
 use std::{env, vec};
 use std::sync::Arc;
 use serenity::prelude::*;
@@ -16,21 +14,6 @@ use serenity::async_trait;
 mod llama_cpp_executor;
 use llama_cpp_executor::Executor;
 
-#[derive(PartialEq)]
-enum ChatTrigger {
-    OnMessage,
-    OnMention
-}
-#[derive(PartialEq)]
-enum ChatPrivacy {
-    AllMessages,
-    OnlyMentions
-}
-
-struct Chat {
-    trigger: ChatTrigger,
-    privacy: ChatPrivacy
-}
 
 struct Handler {
     exec: Executor,
