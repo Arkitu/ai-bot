@@ -97,7 +97,7 @@ impl EventHandler for Handler {
             eprintln!("WARN: Cannot delete \"thinking\" message :\n- message id : {}\n- error : {}", reply.id, e);
         }
 
-        msg.channel_id.send_message(&ctx.http, CreateMessage::new().content(res)).await.unwrap();
+        msg.reply(&ctx.http, res).await.unwrap();
         drop(_busy);
     }
 }
